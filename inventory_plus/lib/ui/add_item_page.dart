@@ -5,6 +5,8 @@ import '../../logic/inventory_controller.dart';
 import 'widgets/location_picker_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddItemPage extends StatefulWidget {
   final InventoryController controller;
@@ -52,6 +54,7 @@ class _AddItemPageState extends State<AddItemPage> {
   }
 
   String? _imageUrl; 
+  XFile? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImage() async {
@@ -66,7 +69,10 @@ class _AddItemPageState extends State<AddItemPage> {
               onTap: () async {
                 Navigator.pop(context);
                 final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
-                if (photo != null) setState(() => _imageUrl = photo.path);
+                if (photo != null) setState(() {
+                  _selectedImage = photo;
+                  _imageUrl = photo.path;
+                });
               },
             ),
             ListTile(
@@ -75,7 +81,10 @@ class _AddItemPageState extends State<AddItemPage> {
               onTap: () async {
                 Navigator.pop(context);
                 final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-                if (image != null) setState(() => _imageUrl = image.path);
+                if (image != null) setState(() {
+                  _selectedImage = image;
+                  _imageUrl = image.path;
+                });
               },
             ),
             ListTile(
@@ -106,7 +115,10 @@ class _AddItemPageState extends State<AddItemPage> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           TextButton(
             onPressed: () {
-              setState(() => _imageUrl = urlController.text);
+              setState(() {
+                _imageUrl = urlController.text;
+                _selectedImage = null;
+              });
               Navigator.pop(context);
             },
             child: const Text("OK"),
@@ -128,28 +140,55 @@ class _AddItemPageState extends State<AddItemPage> {
     }
   }
 
-  void _submitData() async {
+void _submitData() async {
   if (!_formKey.currentState!.validate()) return;
   
   setState(() => _isLoading = true);
 
   try {
-    final newItem = widget.controller.createNewItem(
-  name: _nameController.text,
-  sku: _skuController.text,
-  price: _priceController.text,
-  quantity: _quantityController.text,
-  category: _categoryController.text,
-  description: _descController.text,
-  manufacturer: _manufacturerController.text,
-  model: _modelController.text,
-  productSize: _sizeController.text,
-  shelfLevel: _shelfLevelController.text,
-  binNumber: _binNumberController.text,
-  mapLocationId: _selectedMapElement?.id,
-  imageUrl: _imageUrl ?? '',
-);
+    String? finalImageUrl = _imageUrl;
 
+    // Check if _imageUrl is a local file path (and not a URL from the "Enter URL" option)
+    if (_imageUrl != null && !_imageUrl!.startsWith('http')) {
+      final String fileName = _nameController.text.isNotEmpty 
+          ? '${_nameController.text}_image.jpg' 
+          : 'product_image.jpg';
+
+      // 1. Upload to Supabase Storage
+      String? uploadedUrl;
+      if (kIsWeb && _selectedImage != null) {
+        final bytes = await _selectedImage!.readAsBytes();
+        uploadedUrl = await widget.controller.uploadImageBytes(bytes, fileName);
+      } else {
+        final File imageFile = File(_imageUrl!);
+        uploadedUrl = await widget.controller.uploadProductImage(imageFile, fileName);
+      }
+      
+      if (uploadedUrl != null) {
+        finalImageUrl = uploadedUrl;
+      } else {
+        throw Exception("Image upload failed. Is your Supabase 'product_images' bucket created and public?");
+      }
+    }
+
+    // 2. Create the item with the web-accessible URL[cite: 3, 4]
+    final newItem = widget.controller.createNewItem(
+      name: _nameController.text,
+      sku: _skuController.text,
+      price: _priceController.text,
+      quantity: _quantityController.text,
+      category: _categoryController.text,
+      description: _descController.text,
+      manufacturer: _manufacturerController.text,
+      model: _modelController.text,
+      productSize: _sizeController.text,
+      shelfLevel: _shelfLevelController.text,
+      binNumber: _binNumberController.text,
+      mapLocationId: _selectedMapElement?.id,
+      imageUrl: finalImageUrl ?? '', 
+    );
+
+    // 3. Save to the products table[cite: 3, 4]
     await widget.controller.addItem(newItem); 
     
     if (mounted) {
@@ -157,9 +196,16 @@ class _AddItemPageState extends State<AddItemPage> {
        Navigator.pop(context); 
     }
   } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-    );
+    String errorMessage = "Error: $e";
+    if (e is PostgrestException && e.code == '23505') {
+      errorMessage = "An item with this SKU already exists! Please enter a unique SKU.";
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      );
+    }
   } finally {
     if (mounted) setState(() => _isLoading = false);
   }
@@ -348,7 +394,7 @@ class _AddItemPageState extends State<AddItemPage> {
               child: Text(
                 _selectedMapElement != null
                     ? "Assigned to: ${_selectedMapElement!.label}"
-                    : "Select Rack from Store Map",
+                    : "No location selected (Tap to assign)",
                 style: TextStyle(
                   color: _selectedMapElement != null
                       ? Colors.black87
@@ -357,7 +403,17 @@ class _AddItemPageState extends State<AddItemPage> {
                 ),
               ),
             ),
-            const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 16),
+            if (_selectedMapElement != null)
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedMapElement = null;
+                  });
+                },
+                child: const Icon(Icons.cancel, color: Colors.red, size: 20),
+              )
+            else
+              const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 16),
           ],
         ),
       ),
@@ -372,7 +428,7 @@ class _AddItemPageState extends State<AddItemPage> {
         height: 180,
         color: const Color(0xFF1E293B),
         child: _imageUrl != null
-            ? (_imageUrl!.startsWith('http') 
+            ? ((kIsWeb || _imageUrl!.startsWith('http'))
                 ? Image.network(_imageUrl!, fit: BoxFit.cover)
                 : Image.file(File(_imageUrl!), fit: BoxFit.cover))
             : Column(

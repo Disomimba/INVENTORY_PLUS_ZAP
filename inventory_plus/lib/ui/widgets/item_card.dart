@@ -93,9 +93,7 @@ class ItemCard extends StatelessWidget {
   }
 
   Widget _buildStockAndLocation(bool isLowStock) {
-    final String locationText = item.location != null 
-        ? '${item.location!.aisle}-${item.location!.shelf}' 
-        : 'No Location';
+    
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -122,16 +120,16 @@ class ItemCard extends StatelessWidget {
           ),
         ),
         
-        Row(
-          children: [
-            const Icon(LucideIcons.mapPin, size: 12, color: Colors.grey),
-            const SizedBox(width: 4),
-            Text(
-              locationText, 
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
+        // Row(
+        //   children: [
+        //     const Icon(LucideIcons.mapPin, size: 12, color: Colors.grey),
+        //     const SizedBox(width: 4),
+        //     Text(
+        //       locationText, 
+        //       style: const TextStyle(fontSize: 12, color: Colors.grey),
+        //     ),
+        //   ],
+        // ),
       ],
     );
   }

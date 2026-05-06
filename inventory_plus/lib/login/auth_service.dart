@@ -9,14 +9,13 @@ class AuthService {
           .from('profiles')
           .select()
           .eq('username', username)
-          .eq('password', password) // Direct matching
+          .eq('password', password)
           .maybeSingle();
 
       if (response == null) {
-        return null; // Login failed
+        return null; 
       }
 
-      // 2. Return the profile data (contains role, name, etc.)
       print("Login success! Role: ${response['role']}");
       return response;
       

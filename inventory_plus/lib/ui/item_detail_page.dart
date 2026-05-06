@@ -196,7 +196,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(widget.item.imageUrl, fit: BoxFit.cover),
+            Image.network(
+              widget.item.imageUrl, 
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.grey.shade200,
+                child: const Icon(Icons.image_not_supported, color: Colors.grey, size: 50),
+              ),
+            ),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -340,31 +347,23 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Row(children: [Icon(LucideIcons.mapPin, size: 16, color: Colors.orange), SizedBox(width: 8), Text("Store Location", style: TextStyle(fontWeight: FontWeight.bold))]),
-            if (!_isEditing && hasMapId)
+            if (hasMapId)
               TextButton(
                 onPressed: () => setState(() => _showMap = !_showMap),
                 child: Text(_showMap ? "Hide Map" : "View Map", style: const TextStyle(color: Colors.orange)),
               ),
-            if (_isEditing)
-              TextButton.icon(
-                onPressed: _openLocationPicker,
-                icon: const Icon(LucideIcons.locateFixed, size: 14),
-                label: Text(hasMapId ? "Change Rack" : "Set Rack"),
-                style: TextButton.styleFrom(foregroundColor: Colors.blue),
-              ),
           ],
         ),
-        if (_showMap && !_isEditing && hasMapId)
+        if (_showMap && hasMapId)
           StoreMap(
-            layout: widget.controller.storeLayout,
-            layoutItems: widget.controller.allItems,
+            controller: widget.controller,
             highlightId: widget.item.locationId,
             itemName: widget.item.name,
           ),
-        if (!hasMapId && !_isEditing)
+        if (!hasMapId)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text("No rack assigned. Tap 'Edit' to place this item.", style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
+            child: Text("No rack assigned.", style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
           ),
       ],
     );
@@ -462,48 +461,5 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         ),
       ),
     );
-  }
-
-  void _openLocationPicker() async {
-    final MapElement? selectedRack = await showDialog<MapElement>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Select Rack"),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 400,
-          child: InteractiveViewer(
-            constrained: false,
-            child: SizedBox(
-              width: 2000, height: 2000,
-              child: Stack(
-                children: widget.controller.storeLayout.map((el) {
-                  return Positioned(
-                    left: el.position.dx, top: el.position.dy,
-                    width: el.size.width, height: el.size.height,
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context, el),
-                      child: Container(
-                        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.3), border: Border.all(color: Colors.blue), borderRadius: BorderRadius.circular(4)),
-                        child: Center(child: Text(el.label, style: const TextStyle(fontSize: 8))),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (selectedRack != null) {
-      setState(() {
-        widget.controller.assignItemToLocation(widget.item.id, selectedRack.id);
-        final updatedItem = widget.item.copyWith(locationId: selectedRack.id);
-        widget.onUpdate(updatedItem); 
-      });
-      _showSnackBar("Updated to ${selectedRack.label}", Colors.blue);
-    }
   }
 }

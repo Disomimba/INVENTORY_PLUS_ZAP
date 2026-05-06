@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../data/inventory.dart';
-import '../../logic/inventory_controller.dart';
+import '../data/inventory.dart';
+import '../logic/inventory_controller.dart';
 import 'scanner_search_page.dart';
 import 'inventory_page.dart';
 import 'item_detail_page.dart';
@@ -77,6 +77,9 @@ class _MainScreenState extends State<MainScreen> {
           ),
           SettingsPage(
             controller: widget.controller,
+            userName: widget.controller.currentUserName ?? "Unknown User",
+            userId: widget.controller.currentUserId ?? "Unknown ID",
+            userRole: widget.controller.currentUserRole ?? "staff",
           )
         ],
       ),

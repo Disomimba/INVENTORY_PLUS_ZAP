@@ -83,7 +83,6 @@ class _InventoryPageState extends State<InventoryPage> {
                                   widget.controller, 
                               onAdd: (newItem) {
                                 setState(() {
-                                  widget.controller.addItem(newItem);
                                 });
                               },
                             ),

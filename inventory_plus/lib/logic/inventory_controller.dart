@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/inventory.dart';
 
@@ -8,8 +10,23 @@ class InventoryController {
   List<MapElement> storeLayout = [];
   List<InventoryItem> _items = [];
   String? activeLocationId;
+  String? currentUserRole;
+  String? currentUserName;
+  String? currentUserId;
+
+  bool get isAdmin => currentUserRole?.toLowerCase() == 'admin';
 
   List<InventoryItem> get allItems => _items;
+
+  void setLoggedInUser({
+    required String name,
+    required String id,
+    required String role,
+  }) {
+    currentUserName = name;
+    currentUserId = id;
+    currentUserRole = role;
+  }
 
   Future<void> loadAppData(String userLocationId) async {
     activeLocationId = userLocationId;
@@ -44,7 +61,8 @@ class InventoryController {
   }
 
   Future<void> saveLayout() async {
-    if (activeLocationId == null) return;
+    final locId = activeLocationId;
+    if (locId == null) return;
 
     try {
       final String encodedData = jsonEncode(
@@ -54,7 +72,7 @@ class InventoryController {
       await supabase
           .from('locations')
           .update({'layout_data': jsonDecode(encodedData)})
-          .eq('id', activeLocationId!);
+          .eq('id', locId);
 
       print("Layout saved to Supabase.");
     } catch (e) {
@@ -63,7 +81,8 @@ class InventoryController {
   }
 
   Future<void> addItem(InventoryItem newItem) async {
-    if (activeLocationId == null) {
+    final locId = activeLocationId;
+    if (locId == null) {
       print("Error: No activeLocationId found. Are you logged in?");
       return;
     }
@@ -79,7 +98,7 @@ class InventoryController {
             'product_quantity': newItem.quantity,
             'description': newItem.description,
             'image_url': newItem.imageUrl,
-            'location_id': activeLocationId, 
+            'location_id': locId, 
             'map_element_id': newItem.locationId, 
             'manufacturer': newItem.manufacturer,
             'model': newItem.model,
@@ -101,6 +120,37 @@ class InventoryController {
     }
   }
 
+  // Uploads an image to Supabase Storage and returns the public URL
+  Future<String?> uploadProductImage(File imageFile, String fileName) async {
+    try {
+      // Generate a unique path to prevent overwriting images with the same name
+      final path = 'public/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      
+      await supabase.storage.from('product_images').upload(path, imageFile);
+      
+      final imageUrl = supabase.storage.from('product_images').getPublicUrl(path);
+      return imageUrl;
+    } catch (e) {
+      print("Error uploading image: $e");
+      return null;
+    }
+  }
+
+  // Uploads an image from bytes (Required for Flutter Web)
+  Future<String?> uploadImageBytes(Uint8List imageBytes, String fileName) async {
+    try {
+      final path = 'public/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      
+      await supabase.storage.from('product_images').uploadBinary(path, imageBytes);
+      
+      final imageUrl = supabase.storage.from('product_images').getPublicUrl(path);
+      return imageUrl;
+    } catch (e) {
+      print("Error uploading image bytes: $e");
+      return null;
+    }
+  }
+
   Future<void> updateItem(InventoryItem updatedItem) async {
     try {
       await supabase
@@ -116,6 +166,7 @@ class InventoryController {
             'product_size': updatedItem.productSize,
             'shelf_level': updatedItem.shelfLevel,
             'bin_number': updatedItem.binNumber,
+            'image_url': updatedItem.imageUrl,
             'map_element_id':
                 updatedItem.locationId, 
           })
@@ -162,19 +213,36 @@ class InventoryController {
     required String query,
     required String category,
   }) {
-    return _items.where((item) {
+    final filtered = _items.where((item) {
       final matchesSearch =
           item.name.toLowerCase().contains(query.toLowerCase()) ||
           item.sku.toLowerCase().contains(query.toLowerCase());
-      final matchesCategory = category == 'All' || item.category == category;
+      
+      final matchesCategory = category == 'All' || 
+          (category == 'Unassigned' && item.locationId == null) ||
+          item.category == category;
+          
       return matchesSearch && matchesCategory;
     }).toList();
+
+    // Sort items: "No Location" first, then group by location, then alphabetize by name
+    filtered.sort((a, b) {
+      if (a.locationId == null && b.locationId != null) return -1;
+      if (a.locationId != null && b.locationId == null) return 1;
+      if (a.locationId != null && b.locationId != null) {
+        final locCompare = a.locationId!.compareTo(b.locationId!);
+        if (locCompare != 0) return locCompare;
+      }
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+
+    return filtered;
   }
 
   List<String> getUniqueCategories() {
     final categories = _items.map((item) => item.category).toSet().toList();
     categories.sort();
-    return ['All', ...categories];
+    return ['All', 'Unassigned', ...categories];
   }
 
   InventoryItem prepareUpdatedItem({
@@ -260,5 +328,86 @@ class InventoryController {
           item.sku.toLowerCase().contains(lowercaseQuery) ||
           item.category.toLowerCase().contains(lowercaseQuery);
     }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchStaff() async {
+    final locId = activeLocationId;
+    if (locId == null) return [];
+    try {
+      final response = await supabase
+          .from('profiles')
+          .select()
+          .eq('location_id', locId);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print("Error fetching staff: $e");
+      return [];
+    }
+  }
+
+  Future<bool> createStaff({
+    required String name,
+    required String username,
+    required String password,
+    required String role,
+  }) async {
+    final locId = activeLocationId;
+    if (locId == null) return false;
+    try {
+      await supabase.from('profiles').insert({
+        'name': name,
+        'username': username,
+        'password': password,
+        'role': role,
+        'location_id': locId,
+      });
+      return true;
+    } catch (e) {
+      print("Error creating staff: $e");
+      return false;
+    }
+  }
+
+  Future<bool> updateStaffRole(String id, String newRole) async {
+    try {
+      await supabase.from('profiles').update({'role': newRole}).eq('id', id);
+      return true;
+    } catch (e) {
+      print("Error updating staff role: $e");
+      return false;
+    }
+  }
+
+  Future<bool> deleteStaff(String id) async {
+    try {
+      await supabase.from('profiles').delete().eq('id', id);
+      return true;
+    } catch (e) {
+      print("Error deleting staff: $e");
+      return false;
+    }
+  }
+
+  Future<String?> changePassword(String currentPassword, String newPassword) async {
+    if (currentUserId == null) return "User not logged in.";
+    try {
+      // Verify current password
+      final response = await supabase
+          .from('profiles')
+          .select('password')
+          .eq('id', currentUserId!)
+          .single();
+
+      if (response['password'] != currentPassword) {
+        return "Incorrect current password.";
+      }
+
+      // Update to new password
+      await supabase.from('profiles').update({'password': newPassword}).eq('id', currentUserId!);
+      return null; // Returns null upon success
+    } catch (e) {
+      print("Error changing password: $e");
+      return "An error occurred while changing the password.";
+    }
   }
 }

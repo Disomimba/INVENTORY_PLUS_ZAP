@@ -37,6 +37,13 @@ class _LoginPageState extends State<LoginPage> {
     if (userProfile != null) {
       try {
         final String? assignedLocationId = userProfile['location_id'];
+        
+        // Save the user's details to the controller so the rest of the app knows!
+        widget.controller.setLoggedInUser(
+          name: userProfile['name'] ?? username,
+          id: userProfile['id']?.toString() ?? 'Unknown ID',
+          role: userProfile['role'] ?? 'staff',
+        );
 
         if (assignedLocationId != null && assignedLocationId.isNotEmpty) {
           await widget.controller.loadAppData(assignedLocationId);
