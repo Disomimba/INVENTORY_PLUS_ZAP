@@ -53,7 +53,7 @@ class _AddItemPageState extends State<AddItemPage> {
     super.dispose();
   }
 
-  String? _imageUrl; 
+  String? _imageUrl;
   XFile? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
@@ -68,11 +68,14 @@ class _AddItemPageState extends State<AddItemPage> {
               title: const Text('Take Photo'),
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
-                if (photo != null) setState(() {
-                  _selectedImage = photo;
-                  _imageUrl = photo.path;
-                });
+                final XFile? photo = await _picker.pickImage(
+                  source: ImageSource.camera,
+                );
+                if (photo != null)
+                  setState(() {
+                    _selectedImage = photo;
+                    _imageUrl = photo.path;
+                  });
               },
             ),
             ListTile(
@@ -80,11 +83,14 @@ class _AddItemPageState extends State<AddItemPage> {
               title: const Text('Choose from Gallery'),
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-                if (image != null) setState(() {
-                  _selectedImage = image;
-                  _imageUrl = image.path;
-                });
+                final XFile? image = await _picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                if (image != null)
+                  setState(() {
+                    _selectedImage = image;
+                    _imageUrl = image.path;
+                  });
               },
             ),
             ListTile(
@@ -112,7 +118,10 @@ class _AddItemPageState extends State<AddItemPage> {
           decoration: const InputDecoration(hintText: "Paste link here"),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
           TextButton(
             onPressed: () {
               setState(() {
@@ -127,6 +136,7 @@ class _AddItemPageState extends State<AddItemPage> {
       ),
     );
   }
+
   void _showLocationPicker() async {
     final MapElement? result = await showDialog<MapElement>(
       context: context,
@@ -140,76 +150,82 @@ class _AddItemPageState extends State<AddItemPage> {
     }
   }
 
-void _submitData() async {
-  if (!_formKey.currentState!.validate()) return;
-  
-  setState(() => _isLoading = true);
+  void _submitData() async {
+    // TRIGGER VALIDATION: If any validator returns an error string, this stops!
+    if (!_formKey.currentState!.validate()) return;
 
-  try {
-    String? finalImageUrl = _imageUrl;
+    setState(() => _isLoading = true);
 
-    // Check if _imageUrl is a local file path (and not a URL from the "Enter URL" option)
-    if (_imageUrl != null && !_imageUrl!.startsWith('http')) {
-      final String fileName = _nameController.text.isNotEmpty 
-          ? '${_nameController.text}_image.jpg' 
-          : 'product_image.jpg';
+    try {
+      String? finalImageUrl = _imageUrl;
 
-      // 1. Upload to Supabase Storage
-      String? uploadedUrl;
-      if (kIsWeb && _selectedImage != null) {
-        final bytes = await _selectedImage!.readAsBytes();
-        uploadedUrl = await widget.controller.uploadImageBytes(bytes, fileName);
-      } else {
-        final File imageFile = File(_imageUrl!);
-        uploadedUrl = await widget.controller.uploadProductImage(imageFile, fileName);
+      if (_imageUrl != null && !_imageUrl!.startsWith('http')) {
+        final String fileName = _nameController.text.isNotEmpty
+            ? '${_nameController.text}_image.jpg'
+            : 'product_image.jpg';
+
+        String? uploadedUrl;
+        if (kIsWeb && _selectedImage != null) {
+          final bytes = await _selectedImage!.readAsBytes();
+          uploadedUrl = await widget.controller.uploadImageBytes(
+            bytes,
+            fileName,
+          );
+        } else {
+          final File imageFile = File(_imageUrl!);
+          uploadedUrl = await widget.controller.uploadProductImage(
+            imageFile,
+            fileName,
+          );
+        }
+
+        if (uploadedUrl != null) {
+          finalImageUrl = uploadedUrl;
+        } else {
+          throw Exception(
+            "Image upload failed. Is your Supabase 'product_images' bucket created and public?",
+          );
+        }
       }
-      
-      if (uploadedUrl != null) {
-        finalImageUrl = uploadedUrl;
-      } else {
-        throw Exception("Image upload failed. Is your Supabase 'product_images' bucket created and public?");
-      }
-    }
 
-    // 2. Create the item with the web-accessible URL[cite: 3, 4]
-    final newItem = widget.controller.createNewItem(
-      name: _nameController.text,
-      sku: _skuController.text,
-      price: _priceController.text,
-      quantity: _quantityController.text,
-      category: _categoryController.text,
-      description: _descController.text,
-      manufacturer: _manufacturerController.text,
-      model: _modelController.text,
-      productSize: _sizeController.text,
-      shelfLevel: _shelfLevelController.text,
-      binNumber: _binNumberController.text,
-      mapLocationId: _selectedMapElement?.id,
-      imageUrl: finalImageUrl ?? '', 
-    );
-
-    // 3. Save to the products table[cite: 3, 4]
-    await widget.controller.addItem(newItem); 
-    
-    if (mounted) {
-       widget.onAdd(newItem);
-       Navigator.pop(context); 
-    }
-  } catch (e) {
-    String errorMessage = "Error: $e";
-    if (e is PostgrestException && e.code == '23505') {
-      errorMessage = "An item with this SKU already exists! Please enter a unique SKU.";
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+      final newItem = widget.controller.createNewItem(
+        name: _nameController.text.trim(),
+        sku: _skuController.text.trim(),
+        price: _priceController.text.trim(),
+        quantity: _quantityController.text.trim(),
+        category: _categoryController.text.trim(),
+        description: _descController.text.trim(),
+        manufacturer: _manufacturerController.text.trim(),
+        model: _modelController.text.trim(),
+        productSize: _sizeController.text.trim(),
+        shelfLevel: _shelfLevelController.text.trim(),
+        binNumber: _binNumberController.text.trim(),
+        mapLocationId: _selectedMapElement?.id,
+        imageUrl: finalImageUrl ?? '',
       );
+
+      await widget.controller.addItem(newItem);
+
+      if (mounted) {
+        widget.onAdd(newItem);
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      String errorMessage = "Error: $e";
+      if (e is PostgrestException && e.code == '23505') {
+        errorMessage =
+            "An item with this SKU already exists! Please enter a unique SKU.";
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -240,24 +256,41 @@ void _submitData() async {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionTitle("General Information"),
+                          _buildSectionTitle("General Information *"),
                           _buildTextField(
                             _nameController,
                             "Product Name",
                             LucideIcons.package,
+                            // Validation: Required, Min 3 chars
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty)
+                                return 'Product name is required';
+                              if (val.trim().length < 3)
+                                return 'Name must be at least 3 characters';
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 16),
                           _buildTextField(
                             _skuController,
                             "SKU / Barcode",
                             LucideIcons.hash,
+                            // Validation: Required, No Spaces
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty)
+                                return 'SKU is required';
+                              if (val.contains(' '))
+                                return 'SKU cannot contain spaces';
+                              return null;
+                            },
                           ),
 
                           const SizedBox(height: 24),
-                          _buildSectionTitle("Store Placement"),
-                          _buildLocationSelector(), 
+                          _buildSectionTitle("Store Placement (Optional)"),
+                          _buildLocationSelector(),
                           const SizedBox(height: 16),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: _buildTextField(
@@ -278,7 +311,9 @@ void _submitData() async {
                           ),
 
                           const SizedBox(height: 24),
-                          _buildSectionTitle("Technical Specifications"),
+                          _buildSectionTitle(
+                            "Technical Specifications (Optional)",
+                          ),
                           _buildTextField(
                             _manufacturerController,
                             "Brand / Manufacturer",
@@ -286,6 +321,7 @@ void _submitData() async {
                           ),
                           const SizedBox(height: 16),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: _buildTextField(
@@ -306,8 +342,9 @@ void _submitData() async {
                           ),
 
                           const SizedBox(height: 24),
-                          _buildSectionTitle("Pricing & Inventory"),
+                          _buildSectionTitle("Pricing & Inventory *"),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: _buildTextField(
@@ -315,6 +352,15 @@ void _submitData() async {
                                   "Price (₱)",
                                   LucideIcons.banknote,
                                   isNumber: true,
+                                  // Validation: Required, Must be valid double >= 0
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty)
+                                      return 'Required';
+                                    final number = double.tryParse(val.trim());
+                                    if (number == null) return 'Invalid number';
+                                    if (number < 0) return 'Cannot be negative';
+                                    return null;
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -324,6 +370,16 @@ void _submitData() async {
                                   "Initial Stock",
                                   LucideIcons.archive,
                                   isNumber: true,
+                                  // Validation: Required, Must be valid integer >= 0
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty)
+                                      return 'Required';
+                                    final number = int.tryParse(val.trim());
+                                    if (number == null)
+                                      return 'Must be whole number';
+                                    if (number < 0) return 'Cannot be negative';
+                                    return null;
+                                  },
                                 ),
                               ),
                             ],
@@ -333,6 +389,11 @@ void _submitData() async {
                             _categoryController,
                             "Category",
                             LucideIcons.tag,
+                            // Validation: Required
+                            validator: (val) =>
+                                val == null || val.trim().isEmpty
+                                ? 'Category is required'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           _buildTextField(
@@ -340,6 +401,15 @@ void _submitData() async {
                             "Detailed Description",
                             LucideIcons.fileText,
                             isMultiline: true,
+                            // Validation: Optional, but if provided must be > 5 chars
+                            validator: (val) {
+                              if (val != null &&
+                                  val.trim().isNotEmpty &&
+                                  val.trim().length < 5) {
+                                return 'Description must be at least 5 characters';
+                              }
+                              return null;
+                            },
                           ),
 
                           const SizedBox(height: 40),
@@ -413,7 +483,11 @@ void _submitData() async {
                 child: const Icon(Icons.cancel, color: Colors.red, size: 20),
               )
             else
-              const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 16),
+              const Icon(
+                LucideIcons.chevronRight,
+                color: Colors.grey,
+                size: 16,
+              ),
           ],
         ),
       ),
@@ -429,15 +503,24 @@ void _submitData() async {
         color: const Color(0xFF1E293B),
         child: _imageUrl != null
             ? ((kIsWeb || _imageUrl!.startsWith('http'))
-                ? Image.network(_imageUrl!, fit: BoxFit.cover)
-                : Image.file(File(_imageUrl!), fit: BoxFit.cover))
+                  ? Image.network(_imageUrl!, fit: BoxFit.cover)
+                  : Image.file(File(_imageUrl!), fit: BoxFit.cover))
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(LucideIcons.imagePlus, color: Colors.white.withOpacity(0.3), size: 40),
+                  Icon(
+                    LucideIcons.imagePlus,
+                    color: Colors.white.withOpacity(0.3),
+                    size: 40,
+                  ),
                   const SizedBox(height: 8),
-                  Text("Tap to Add Product Photo", 
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                  Text(
+                    "Tap to Add Product Photo",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
       ),
@@ -466,26 +549,33 @@ void _submitData() async {
     );
   }
 
+  // UPGRADED TEXT FIELD to accept custom validators
   Widget _buildTextField(
     TextEditingController controller,
     String hint,
     IconData icon, {
     bool isNumber = false,
     bool isMultiline = false,
+    String? Function(String?)? validator, // Accepts specific rules
   }) {
     return TextFormField(
       controller: controller,
+      // For numbers, we show a number keyboard. Otherwise text/multiline.
       keyboardType: isNumber
-          ? TextInputType.number
+          ? const TextInputType.numberWithOptions(decimal: true)
           : (isMultiline ? TextInputType.multiline : TextInputType.text),
       maxLines: isMultiline ? 3 : 1,
-      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+
+      // Use the provided validator, or default to returning null (no error)
+      validator: validator,
+
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
         prefixIcon: Icon(icon, size: 18, color: Colors.orange),
         filled: true,
         fillColor: Colors.white,
+        errorStyle: const TextStyle(color: Colors.redAccent, fontSize: 12),
         contentPadding: const EdgeInsets.symmetric(
           vertical: 12,
           horizontal: 16,
