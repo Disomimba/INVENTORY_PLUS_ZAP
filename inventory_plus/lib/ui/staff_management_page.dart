@@ -45,19 +45,28 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.purple))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _staffList.length,
-              itemBuilder: (context, index) {
-                final staff = _staffList[index];
-                return _buildStaffCard(staff);
-              },
+          // FIX: Constrained Box to prevent horizontal stretching on Web
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _staffList.length,
+                  itemBuilder: (context, index) {
+                    final staff = _staffList[index];
+                    return _buildStaffCard(staff);
+                  },
+                ),
+              ),
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddStaffDialog,
         backgroundColor: Colors.purple,
         icon: const Icon(LucideIcons.userPlus, color: Colors.white),
-        label: const Text("Add Staff", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text(
+          "Add Staff",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -75,7 +84,9 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: isAdmin ? Colors.purple.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+          backgroundColor: isAdmin
+              ? Colors.purple.withOpacity(0.1)
+              : Colors.blue.withOpacity(0.1),
           child: Icon(
             isAdmin ? LucideIcons.shieldCheck : LucideIcons.user,
             color: isAdmin ? Colors.purple : Colors.blue,
@@ -99,28 +110,24 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
             if (value == 'edit') {
               _showEditStaffDialog(staff);
             } else if (value == 'delete') {
-              final success = await widget.controller.deleteStaff(staff['id'].toString());
+              final success = await widget.controller.deleteStaff(
+                staff['id'].toString(),
+              );
               if (success) _loadStaff();
             }
           },
-          itemBuilder: (context) {
-            return [
-              const PopupMenuItem(
-                value: 'edit',
-                child: Text('Edit Role'),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Text('Delete Account'),
-              ),
-            ];
-          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'edit', child: Text('Edit Role')),
+            const PopupMenuItem(value: 'delete', child: Text('Delete Account')),
+          ],
         ),
       ),
     );
   }
 
   void _showAddStaffDialog() {
+    // FIX: Using a FormKey to validate inputs
+    final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
     final userCtrl = TextEditingController();
     final passCtrl = TextEditingController();
@@ -131,63 +138,129 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text("Add New Staff", style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: "Full Name", prefixIcon: Icon(LucideIcons.user), border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: userCtrl,
-                decoration: const InputDecoration(labelText: "Username", prefixIcon: Icon(LucideIcons.atSign), border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passCtrl,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: "Password", prefixIcon: Icon(LucideIcons.lock), border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedRole,
-                decoration: const InputDecoration(labelText: "Role", border: OutlineInputBorder(), prefixIcon: Icon(LucideIcons.shield)),
-                items: const [
-                  DropdownMenuItem(value: 'staff', child: Text('Staff')),
-                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            "Add New Staff",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: 400, // Keeps the modal at a nice compact width
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    validator: (val) => val == null || val.trim().length < 2
+                        ? 'Name must be at least 2 characters'
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: "Full Name",
+                      prefixIcon: Icon(LucideIcons.user),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: userCtrl,
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty)
+                        return 'Username is required';
+                      if (val.contains(' '))
+                        return 'Username cannot contain spaces';
+                      if (val.trim().length < 3)
+                        return 'Username must be at least 3 characters';
+                      return null;
+                    },
+                    decoration: const InputDecoration(
+                      labelText: "Username",
+                      prefixIcon: Icon(LucideIcons.atSign),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    validator: (val) => val == null || val.trim().length < 6
+                        ? 'Password must be at least 6 characters'
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: "Password",
+                      prefixIcon: Icon(LucideIcons.lock),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: "Role",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(LucideIcons.shield),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'staff', child: Text('Staff')),
+                      DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                    ],
+                    onChanged: (val) => setState(() => selectedRole = val!),
+                  ),
                 ],
-                onChanged: (val) => setState(() => selectedRole = val!),
               ),
-            ],
+            ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel", style: TextStyle(color: Colors.grey))),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+            ),
             ElevatedButton(
-              onPressed: isSaving ? null : () async {
-                setState(() => isSaving = true);
-                final success = await widget.controller.createStaff(
-                  name: nameCtrl.text,
-                  username: userCtrl.text,
-                  password: passCtrl.text,
-                  role: selectedRole,
-                );
-                if (success) {
-                  Navigator.pop(context);
-                  _loadStaff();
-                } else {
-                  setState(() => isSaving = false);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error creating staff account')));
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
-              child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("Create Account"),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      // FIX: Trigger the form validation check
+                      if (!formKey.currentState!.validate()) return;
+
+                      setState(() => isSaving = true);
+                      final success = await widget.controller.createStaff(
+                        name: nameCtrl.text.trim(),
+                        username: userCtrl.text.trim(),
+                        password: passCtrl.text.trim(),
+                        role: selectedRole,
+                      );
+                      if (success) {
+                        Navigator.pop(context);
+                        _loadStaff();
+                      } else {
+                        setState(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Error creating staff account'),
+                          ),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+              child: isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text("Create Account"),
             ),
           ],
-        )
-      )
+        ),
+      ),
     );
   }
 
@@ -199,42 +272,76 @@ class _StaffManagementPageState extends State<StaffManagementPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text("Edit ${staff['name'] ?? 'Staff'}", style: const TextStyle(fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: selectedRole,
-                decoration: const InputDecoration(labelText: "Role", border: OutlineInputBorder(), prefixIcon: Icon(LucideIcons.shield)),
-                items: const [
-                  DropdownMenuItem(value: 'staff', child: Text('Staff')),
-                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                ],
-                onChanged: (val) => setState(() => selectedRole = val!),
-              ),
-            ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            "Edit ${staff['name'] ?? 'Staff'}",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  decoration: const InputDecoration(
+                    labelText: "Role",
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(LucideIcons.shield),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'staff', child: Text('Staff')),
+                    DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                  ],
+                  onChanged: (val) => setState(() => selectedRole = val!),
+                ),
+              ],
+            ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel", style: TextStyle(color: Colors.grey))),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+            ),
             ElevatedButton(
-              onPressed: isSaving ? null : () async {
-                setState(() => isSaving = true);
-                final success = await widget.controller.updateStaffRole(staff['id'].toString(), selectedRole);
-                if (success) {
-                  Navigator.pop(context);
-                  _loadStaff();
-                } else {
-                  setState(() => isSaving = false);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error updating role')));
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
-              child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("Save Changes"),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      setState(() => isSaving = true);
+                      final success = await widget.controller.updateStaffRole(
+                        staff['id'].toString(),
+                        selectedRole,
+                      );
+                      if (success) {
+                        Navigator.pop(context);
+                        _loadStaff();
+                      } else {
+                        setState(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Error updating role')),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+              child: isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text("Save Changes"),
             ),
           ],
-        )
-      )
+        ),
+      ),
     );
   }
 }

@@ -36,6 +36,9 @@ class _AddItemPageState extends State<AddItemPage> {
   final _binNumberController = TextEditingController();
 
   MapElement? _selectedMapElement;
+  String? _imageUrl;
+  XFile? _selectedImage;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -53,10 +56,6 @@ class _AddItemPageState extends State<AddItemPage> {
     super.dispose();
   }
 
-  String? _imageUrl; 
-  XFile? _selectedImage;
-  final ImagePicker _picker = ImagePicker();
-
   Future<void> _pickImage() async {
     showModalBottomSheet(
       context: context,
@@ -68,11 +67,14 @@ class _AddItemPageState extends State<AddItemPage> {
               title: const Text('Take Photo'),
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
-                if (photo != null) setState(() {
-                  _selectedImage = photo;
-                  _imageUrl = photo.path;
-                });
+                final XFile? photo = await _picker.pickImage(
+                  source: ImageSource.camera,
+                );
+                if (photo != null)
+                  setState(() {
+                    _selectedImage = photo;
+                    _imageUrl = photo.path;
+                  });
               },
             ),
             ListTile(
@@ -80,11 +82,14 @@ class _AddItemPageState extends State<AddItemPage> {
               title: const Text('Choose from Gallery'),
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-                if (image != null) setState(() {
-                  _selectedImage = image;
-                  _imageUrl = image.path;
-                });
+                final XFile? image = await _picker.pickImage(
+                  source: ImageSource.gallery,
+                );
+                if (image != null)
+                  setState(() {
+                    _selectedImage = image;
+                    _imageUrl = image.path;
+                  });
               },
             ),
             ListTile(
@@ -112,7 +117,10 @@ class _AddItemPageState extends State<AddItemPage> {
           decoration: const InputDecoration(hintText: "Paste link here"),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
           TextButton(
             onPressed: () {
               setState(() {
@@ -127,94 +135,93 @@ class _AddItemPageState extends State<AddItemPage> {
       ),
     );
   }
+
   void _showLocationPicker() async {
     final MapElement? result = await showDialog<MapElement>(
       context: context,
       builder: (context) => LocationPickerDialog(controller: widget.controller),
     );
-
-    if (result != null) {
-      setState(() {
-        _selectedMapElement = result;
-      });
-    }
+    if (result != null) setState(() => _selectedMapElement = result);
   }
 
-void _submitData() async {
-  if (!_formKey.currentState!.validate()) return;
-  
-  setState(() => _isLoading = true);
-
-  try {
-    String? finalImageUrl = _imageUrl;
-
-    // Check if _imageUrl is a local file path (and not a URL from the "Enter URL" option)
-    if (_imageUrl != null && !_imageUrl!.startsWith('http')) {
-      final String fileName = _nameController.text.isNotEmpty 
-          ? '${_nameController.text}_image.jpg' 
-          : 'product_image.jpg';
-
-      // 1. Upload to Supabase Storage
-      String? uploadedUrl;
-      if (kIsWeb && _selectedImage != null) {
-        final bytes = await _selectedImage!.readAsBytes();
-        uploadedUrl = await widget.controller.uploadImageBytes(bytes, fileName);
-      } else {
-        final File imageFile = File(_imageUrl!);
-        uploadedUrl = await widget.controller.uploadProductImage(imageFile, fileName);
-      }
-      
-      if (uploadedUrl != null) {
-        finalImageUrl = uploadedUrl;
-      } else {
-        throw Exception("Image upload failed. Is your Supabase 'product_images' bucket created and public?");
-      }
-    }
-
-    // 2. Create the item with the web-accessible URL[cite: 3, 4]
-    final newItem = widget.controller.createNewItem(
-      name: _nameController.text,
-      sku: _skuController.text,
-      price: _priceController.text,
-      quantity: _quantityController.text,
-      category: _categoryController.text,
-      description: _descController.text,
-      manufacturer: _manufacturerController.text,
-      model: _modelController.text,
-      productSize: _sizeController.text,
-      shelfLevel: _shelfLevelController.text,
-      binNumber: _binNumberController.text,
-      mapLocationId: _selectedMapElement?.id,
-      imageUrl: finalImageUrl ?? '', 
-    );
-
-    // 3. Save to the products table[cite: 3, 4]
-    await widget.controller.addItem(newItem); 
-    
-    if (mounted) {
-       widget.onAdd(newItem);
-       Navigator.pop(context); 
-    }
-  } catch (e) {
-    String errorMessage = "Error: $e";
-    if (e is PostgrestException && e.code == '23505') {
-      errorMessage = "An item with this SKU already exists! Please enter a unique SKU.";
-    }
-
-    if (mounted) {
+  void _submitData() async {
+    // TRIGGER FORM VALIDATION
+    if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text("Please fix the errors before saving."),
+          backgroundColor: Colors.redAccent,
+        ),
       );
+      return;
     }
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
+
+    setState(() => _isLoading = true);
+
+    try {
+      String? finalImageUrl = _imageUrl;
+
+      if (_imageUrl != null && !_imageUrl!.startsWith('http')) {
+        final String fileName = _nameController.text.isNotEmpty
+            ? '${_nameController.text}_image.jpg'
+            : 'product_image.jpg';
+        String? uploadedUrl;
+        if (kIsWeb && _selectedImage != null) {
+          final bytes = await _selectedImage!.readAsBytes();
+          uploadedUrl = await widget.controller.uploadImageBytes(
+            bytes,
+            fileName,
+          );
+        } else {
+          final File imageFile = File(_imageUrl!);
+          uploadedUrl = await widget.controller.uploadProductImage(
+            imageFile,
+            fileName,
+          );
+        }
+        if (uploadedUrl != null) finalImageUrl = uploadedUrl;
+      }
+
+      final newItem = widget.controller.createNewItem(
+        name: _nameController.text.trim(),
+        sku: _skuController.text.trim(),
+        price: _priceController.text.trim(),
+        quantity: _quantityController.text.trim(),
+        category: _categoryController.text.trim(),
+        description: _descController.text.trim(),
+        manufacturer: _manufacturerController.text.trim(),
+        model: _modelController.text.trim(),
+        productSize: _sizeController.text.trim(),
+        shelfLevel: _shelfLevelController.text.trim(),
+        binNumber: _binNumberController.text.trim(),
+        mapLocationId: _selectedMapElement?.id,
+        imageUrl: finalImageUrl ?? '',
+      );
+
+      await widget.controller.addItem(newItem);
+      if (mounted) {
+        widget.onAdd(newItem);
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      String errorMessage = "Error: $e";
+      if (e is PostgrestException && e.code == '23505') {
+        errorMessage =
+            "An item with this SKU already exists! Please enter a unique SKU.";
+      }
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         elevation: 0,
@@ -226,6 +233,7 @@ void _submitData() async {
           icon: const Icon(LucideIcons.chevronLeft, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
+        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.orange))
@@ -245,33 +253,45 @@ void _submitData() async {
                             _nameController,
                             "Product Name",
                             LucideIcons.package,
+                            customValidator: (v) => v!.trim().length < 2
+                                ? 'Enter a valid name (min 2 chars)'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           _buildTextField(
                             _skuController,
                             "SKU / Barcode",
                             LucideIcons.hash,
+                            customValidator: (v) {
+                              if (v == null || v.trim().isEmpty)
+                                return 'SKU is required';
+                              if (v.contains(' '))
+                                return 'SKU cannot contain spaces';
+                              return null;
+                            },
                           ),
 
                           const SizedBox(height: 24),
                           _buildSectionTitle("Store Placement"),
-                          _buildLocationSelector(), 
+                          _buildLocationSelector(),
                           const SizedBox(height: 16),
                           Row(
                             children: [
                               Expanded(
                                 child: _buildTextField(
                                   _shelfLevelController,
-                                  "Shelf (e.g. Level 3)",
+                                  "Shelf (e.g. L3)",
                                   LucideIcons.layers,
+                                  isRequired: false,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildTextField(
                                   _binNumberController,
-                                  "Bin (e.g. B-12)",
+                                  "Bin (e.g. B12)",
                                   LucideIcons.box,
+                                  isRequired: false,
                                 ),
                               ),
                             ],
@@ -283,6 +303,7 @@ void _submitData() async {
                             _manufacturerController,
                             "Brand / Manufacturer",
                             LucideIcons.factory,
+                            isRequired: false,
                           ),
                           const SizedBox(height: 16),
                           Row(
@@ -292,14 +313,16 @@ void _submitData() async {
                                   _modelController,
                                   "Model #",
                                   LucideIcons.info,
+                                  isRequired: false,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildTextField(
                                   _sizeController,
-                                  "Size (e.g. 12mm, XL)",
+                                  "Size",
                                   LucideIcons.maximize,
+                                  isRequired: false,
                                 ),
                               ),
                             ],
@@ -340,10 +363,12 @@ void _submitData() async {
                             "Detailed Description",
                             LucideIcons.fileText,
                             isMultiline: true,
+                            isRequired: false,
                           ),
 
                           const SizedBox(height: 40),
                           _buildSaveButton(),
+                          const SizedBox(height: 40),
                         ],
                       ),
                     ),
@@ -394,7 +419,7 @@ void _submitData() async {
               child: Text(
                 _selectedMapElement != null
                     ? "Assigned to: ${_selectedMapElement!.label}"
-                    : "No location selected (Tap to assign)",
+                    : "No location selected",
                 style: TextStyle(
                   color: _selectedMapElement != null
                       ? Colors.black87
@@ -405,15 +430,15 @@ void _submitData() async {
             ),
             if (_selectedMapElement != null)
               GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedMapElement = null;
-                  });
-                },
+                onTap: () => setState(() => _selectedMapElement = null),
                 child: const Icon(Icons.cancel, color: Colors.red, size: 20),
               )
             else
-              const Icon(LucideIcons.chevronRight, color: Colors.grey, size: 16),
+              const Icon(
+                LucideIcons.chevronRight,
+                color: Colors.grey,
+                size: 16,
+              ),
           ],
         ),
       ),
@@ -429,15 +454,24 @@ void _submitData() async {
         color: const Color(0xFF1E293B),
         child: _imageUrl != null
             ? ((kIsWeb || _imageUrl!.startsWith('http'))
-                ? Image.network(_imageUrl!, fit: BoxFit.cover)
-                : Image.file(File(_imageUrl!), fit: BoxFit.cover))
+                  ? Image.network(_imageUrl!, fit: BoxFit.cover)
+                  : Image.file(File(_imageUrl!), fit: BoxFit.cover))
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(LucideIcons.imagePlus, color: Colors.white.withOpacity(0.3), size: 40),
+                  Icon(
+                    LucideIcons.imagePlus,
+                    color: Colors.white.withOpacity(0.3),
+                    size: 40,
+                  ),
                   const SizedBox(height: 8),
-                  Text("Tap to Add Product Photo", 
-                    style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                  Text(
+                    "Tap to Add Product Photo",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
       ),
@@ -472,14 +506,27 @@ void _submitData() async {
     IconData icon, {
     bool isNumber = false,
     bool isMultiline = false,
+    bool isRequired = true,
+    String? Function(String?)? customValidator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: isNumber
-          ? TextInputType.number
+          ? const TextInputType.numberWithOptions(decimal: true)
           : (isMultiline ? TextInputType.multiline : TextInputType.text),
       maxLines: isMultiline ? 3 : 1,
-      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+      validator:
+          customValidator ??
+          (value) {
+            if (isRequired && (value == null || value.trim().isEmpty))
+              return 'Required';
+            if (isNumber &&
+                value != null &&
+                value.trim().isNotEmpty &&
+                double.tryParse(value.trim()) == null)
+              return 'Must be a number';
+            return null;
+          },
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -502,6 +549,7 @@ void _submitData() async {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Colors.orange, width: 2),
         ),
+        errorStyle: const TextStyle(color: Colors.redAccent),
       ),
     );
   }

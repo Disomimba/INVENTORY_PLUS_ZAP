@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../data/inventory.dart';
-import '../../logic/inventory_controller.dart'; 
+import '../../logic/inventory_controller.dart';
 import 'add_item_page.dart';
 import 'package:inventory_plus/ui/widgets/item_card.dart';
 
@@ -75,19 +75,38 @@ class _InventoryPageState extends State<InventoryPage> {
                     ),
                     ElevatedButton.icon(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddItemPage(
-                              controller:
-                                  widget.controller, 
-                              onAdd: (newItem) {
-                                setState(() {
-                                });
-                              },
+                        // FIX: Responsive Routing! Dialog on Desktop, Full Screen on Mobile
+                        final isDesktop =
+                            MediaQuery.of(context).size.width >= 600;
+                        if (isDesktop) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => Dialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: SizedBox(
+                                width: 500, // Capped width for Desktop Modal
+                                height: 750,
+                                child: AddItemPage(
+                                  controller: widget.controller,
+                                  onAdd: (newItem) => setState(() {}),
+                                ),
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddItemPage(
+                                controller: widget.controller,
+                                onAdd: (newItem) => setState(() {}),
+                              ),
+                            ),
+                          );
+                        }
                       },
                       icon: const Icon(LucideIcons.plus, size: 14),
                       label: const Text("New Item"),
@@ -95,7 +114,7 @@ class _InventoryPageState extends State<InventoryPage> {
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: StadiumBorder(),
+                        shape: const StadiumBorder(),
                       ),
                     ),
                   ],
@@ -116,7 +135,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-
                 SizedBox(
                   height: 36,
                   child: ListView.separated(
@@ -156,16 +174,14 @@ class _InventoryPageState extends State<InventoryPage> {
               ],
             ),
           ),
-
           Expanded(
             child: filteredInventory.isNotEmpty
                 ? ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: filteredInventory.length + 1,
                     itemBuilder: (context, index) {
-                      if (index == 0) {
+                      if (index == 0)
                         return _buildListHeader(filteredInventory.length);
-                      }
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: ItemCard(

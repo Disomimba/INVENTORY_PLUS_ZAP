@@ -54,7 +54,9 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   Future<void> _loadHistory() async {
     if (!mounted) return;
     setState(() => _isLoadingHistory = true);
-    final history = await widget.controller.fetchTransactionHistory(_currentItem.id);
+    final history = await widget.controller.fetchTransactionHistory(
+      _currentItem.id,
+    );
     if (mounted) {
       setState(() {
         _transactionHistory = history;
@@ -65,16 +67,28 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   void _initControllers() {
     _nameController = TextEditingController(text: _currentItem.name);
-    _priceController = TextEditingController(text: _currentItem.price.toString());
-    _stockController = TextEditingController(text: _currentItem.quantity.toString());
+    _priceController = TextEditingController(
+      text: _currentItem.price.toString(),
+    );
+    _stockController = TextEditingController(
+      text: _currentItem.quantity.toString(),
+    );
     _skuController = TextEditingController(text: _currentItem.sku);
     _descController = TextEditingController(text: _currentItem.description);
-    
-    _manufacturerController = TextEditingController(text: _currentItem.manufacturer ?? "");
+
+    _manufacturerController = TextEditingController(
+      text: _currentItem.manufacturer ?? "",
+    );
     _modelController = TextEditingController(text: _currentItem.model ?? "");
-    _sizeController = TextEditingController(text: _currentItem.productSize ?? "");
-    _shelfLevelController = TextEditingController(text: _currentItem.shelfLevel ?? "");
-    _binNumberController = TextEditingController(text: _currentItem.binNumber ?? "");
+    _sizeController = TextEditingController(
+      text: _currentItem.productSize ?? "",
+    );
+    _shelfLevelController = TextEditingController(
+      text: _currentItem.shelfLevel ?? "",
+    );
+    _binNumberController = TextEditingController(
+      text: _currentItem.binNumber ?? "",
+    );
   }
 
   @override
@@ -142,10 +156,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message), 
+        content: Text(message),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-      )
+      ),
     );
   }
 
@@ -165,9 +179,23 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     children: [
                       Row(
                         children: [
-                          _buildStatCard("Price", "₱${_currentItem.price.toStringAsFixed(2)}", LucideIcons.banknote, Colors.green, _priceController),
+                          _buildStatCard(
+                            "Price",
+                            "₱${_currentItem.price.toStringAsFixed(2)}",
+                            LucideIcons.banknote,
+                            Colors.green,
+                            _priceController,
+                          ),
                           const SizedBox(width: 12),
-                          _buildStatCard("Stock", _currentItem.quantity.toString(), LucideIcons.package, _currentItem.quantity < 20 ? Colors.red : Colors.blue, _stockController),
+                          _buildStatCard(
+                            "Stock",
+                            _currentItem.quantity.toString(),
+                            LucideIcons.package,
+                            _currentItem.quantity < 20
+                                ? Colors.red
+                                : Colors.blue,
+                            _stockController,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -217,11 +245,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           fit: StackFit.expand,
           children: [
             Image.network(
-              _currentItem.imageUrl, 
+              _currentItem.imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
                 color: Colors.grey.shade200,
-                child: const Icon(Icons.image_not_supported, color: Colors.grey, size: 50),
+                child: const Icon(
+                  Icons.image_not_supported,
+                  color: Colors.grey,
+                  size: 50,
+                ),
               ),
             ),
             Container(
@@ -234,17 +266,27 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               ),
             ),
             Positioned(
-              bottom: 16, left: 16, right: 16,
+              bottom: 16,
+              left: 16,
+              right: 16,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     _currentItem.category.toUpperCase(),
-                    style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.orange,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
                     _currentItem.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -255,7 +297,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color, TextEditingController controller) {
+  Widget _buildStatCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    TextEditingController controller,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -272,14 +320,26 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  Text(
+                    label.toUpperCase(),
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
                   _isEditing
                       ? TextField(
                           controller: controller,
                           keyboardType: TextInputType.number,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         )
-                      : Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      : Text(
+                          value,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
                 ],
               ),
             ),
@@ -293,21 +353,50 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [Icon(LucideIcons.info, size: 16, color: Colors.grey), SizedBox(width: 8), Text("Specifications", style: TextStyle(fontWeight: FontWeight.bold))]),
-          const SizedBox(height: 16),
-          Row(
+          const Row(
             children: [
-              Expanded(child: _buildField("Manufacturer", _manufacturerController, _currentItem.manufacturer ?? "N/A")),
-              const SizedBox(width: 12),
-              Expanded(child: _buildField("Model", _modelController, _currentItem.model ?? "N/A")),
+              Icon(LucideIcons.info, size: 16, color: Colors.grey),
+              SizedBox(width: 8),
+              Text(
+                "Specifications",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildField("Product Size", _sizeController, _currentItem.productSize ?? "Standard"),
+          Row(
+            children: [
+              Expanded(
+                child: _buildField(
+                  "Manufacturer",
+                  _manufacturerController,
+                  _currentItem.manufacturer ?? "N/A",
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildField(
+                  "Model",
+                  _modelController,
+                  _currentItem.model ?? "N/A",
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildField(
+            "Product Size",
+            _sizeController,
+            _currentItem.productSize ?? "Standard",
+          ),
         ],
       ),
     );
@@ -317,23 +406,53 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [Icon(LucideIcons.tag, size: 16, color: Colors.grey), SizedBox(width: 8), Text("Inventory Info", style: TextStyle(fontWeight: FontWeight.bold))]),
+          const Row(
+            children: [
+              Icon(LucideIcons.tag, size: 16, color: Colors.grey),
+              SizedBox(width: 8),
+              Text(
+                "Inventory Info",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           _buildField("SKU", _skuController, _currentItem.sku),
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _buildField("Shelf Level", _shelfLevelController, _currentItem.shelfLevel ?? "Unassigned")),
+              Expanded(
+                child: _buildField(
+                  "Shelf Level",
+                  _shelfLevelController,
+                  _currentItem.shelfLevel ?? "Unassigned",
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _buildField("Bin Number", _binNumberController, _currentItem.binNumber ?? "None")),
+              Expanded(
+                child: _buildField(
+                  "Bin Number",
+                  _binNumberController,
+                  _currentItem.binNumber ?? "None",
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildField("Description", _descController, _currentItem.description, isMultiline: true),
+          _buildField(
+            "Description",
+            _descController,
+            _currentItem.description,
+            isMultiline: true,
+          ),
         ],
       ),
     );
@@ -351,16 +470,26 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [
-            Icon(LucideIcons.history, size: 16, color: Colors.grey),
-            SizedBox(width: 8),
-            Text("Transaction History", style: TextStyle(fontWeight: FontWeight.bold))
-          ]),
+          const Row(
+            children: [
+              Icon(LucideIcons.history, size: 16, color: Colors.grey),
+              SizedBox(width: 8),
+              Text(
+                "Transaction History",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           if (_isLoadingHistory)
             const Center(child: CircularProgressIndicator())
           else if (_transactionHistory.isEmpty)
-            const Center(child: Text("No transaction history found.", style: TextStyle(color: Colors.grey)))
+            const Center(
+              child: Text(
+                "No transaction history found.",
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
           else
             ListView.builder(
               shrinkWrap: true,
@@ -368,15 +497,20 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
               itemCount: _transactionHistory.length,
               itemBuilder: (context, index) {
                 final transaction = _transactionHistory[index];
-                final date = DateTime.parse(transaction['created_at']).toLocal();
-                final formattedDate = "${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+                final date = DateTime.parse(
+                  transaction['created_at'],
+                ).toLocal();
+                final formattedDate =
+                    "${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
                 final quantityChange = transaction['quantity_change'];
                 final isPositive = quantityChange > 0;
                 final type = transaction['transaction_type'] as String;
 
                 // Extract the profile data linked via Foreign Key
                 final profileInfo = transaction['profiles'];
-                final userName = profileInfo != null ? profileInfo['name'] : (transaction['user_name'] ?? 'Unknown');
+                final userName = profileInfo != null
+                    ? profileInfo['name']
+                    : (transaction['user_name'] ?? 'Unknown');
 
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -386,7 +520,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                   ),
                   title: Text(
                     "${isPositive ? '+' : ''}$quantityChange | ${type.replaceAll('_', ' ').capitalize()}",
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
                   ),
                   subtitle: Text("By $userName at $formattedDate"),
                   trailing: Text(
@@ -401,7 +538,12 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController controller, String displayValue, {bool isMultiline = false}) {
+  Widget _buildField(
+    String label,
+    TextEditingController controller,
+    String displayValue, {
+    bool isMultiline = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -410,11 +552,17 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
             ? TextField(
                 controller: controller,
                 maxLines: isMultiline ? null : 1,
-                decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 8)),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
               )
             : Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(displayValue.isEmpty ? "N/A" : displayValue, style: const TextStyle(fontSize: 14)),
+                child: Text(
+                  displayValue.isEmpty ? "N/A" : displayValue,
+                  style: const TextStyle(fontSize: 14),
+                ),
               ),
       ],
     );
@@ -428,11 +576,23 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(children: [Icon(LucideIcons.mapPin, size: 16, color: Colors.orange), SizedBox(width: 8), Text("Store Location", style: TextStyle(fontWeight: FontWeight.bold))]),
+            const Row(
+              children: [
+                Icon(LucideIcons.mapPin, size: 16, color: Colors.orange),
+                SizedBox(width: 8),
+                Text(
+                  "Store Location",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
             if (hasMapId)
               TextButton(
                 onPressed: () => setState(() => _showMap = !_showMap),
-                child: Text(_showMap ? "Hide Map" : "View Map", style: const TextStyle(color: Colors.orange)),
+                child: Text(
+                  _showMap ? "Hide Map" : "View Map",
+                  style: const TextStyle(color: Colors.orange),
+                ),
               ),
           ],
         ),
@@ -445,7 +605,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         if (!hasMapId)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text("No rack assigned.", style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
+            child: Text(
+              "No rack assigned.",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
           ),
       ],
     );
@@ -453,10 +620,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
 
   Widget _buildBottomActions() {
     return Positioned(
-      bottom: 0, left: 0, right: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey.shade200))),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        ),
         child: Row(
           children: [
             Expanded(
@@ -464,7 +636,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 onPressed: _showDeleteDialog,
                 icon: const Icon(LucideIcons.trash2, size: 18),
                 label: const Text("Delete"),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), padding: const EdgeInsets.symmetric(vertical: 16)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -474,7 +650,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 onPressed: _showCheckoutSheet,
                 icon: const Icon(LucideIcons.shoppingCart, size: 18),
                 label: const Text("Checkout Item"),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
               ),
             ),
           ],
@@ -490,7 +670,10 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         title: const Text("Delete Item?"),
         content: Text("Remove \"${_currentItem.name}\" from inventory?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
@@ -509,34 +692,60 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Checkout Item", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                "Checkout Item",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () => setModalState(() => checkoutQty = checkoutQty > 1 ? checkoutQty - 1 : 1),
+                    onPressed: () => setModalState(
+                      () => checkoutQty = checkoutQty > 1 ? checkoutQty - 1 : 1,
+                    ),
                     icon: const Icon(Icons.remove_circle_outline, size: 40),
                   ),
-                  Text("$checkoutQty", style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
+                  Text(
+                    "$checkoutQty",
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   IconButton(
-                    onPressed: () => setModalState(() => checkoutQty = checkoutQty < _currentItem.quantity ? checkoutQty + 1 : checkoutQty),
+                    onPressed: () => setModalState(
+                      () => checkoutQty = checkoutQty < _currentItem.quantity
+                          ? checkoutQty + 1
+                          : checkoutQty,
+                    ),
                     icon: const Icon(Icons.add_circle_outline, size: 40),
                   ),
                 ],
               ),
               const SizedBox(height: 30),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, minimumSize: const Size(double.infinity, 50)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  minimumSize: const Size(double.infinity, 50),
+                ),
                 onPressed: () => _handleCheckout(checkoutQty),
-                child: const Text("Confirm Checkout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  "Confirm Checkout",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),

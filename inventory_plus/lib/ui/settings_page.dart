@@ -24,6 +24,29 @@ class SettingsPage extends StatelessWidget {
     required this.userRole,
   });
 
+  // RESPONSIVE ROUTING: Opens full screen on Mobile, floating Modal on Desktop
+  void _openResponsivePage(BuildContext context, Widget page) {
+    final isDesktop = MediaQuery.of(context).size.width >= 600;
+    if (isDesktop) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: 800, // Capped width for Desktop Modal
+            height: 750,
+            child: page,
+          ),
+        ),
+      );
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,11 +62,9 @@ class SettingsPage extends StatelessWidget {
             color: Colors.blue,
             title: "Store Layout Designer",
             subtitle: "Manage racks, shelves, and pathways",
-            onTap: () => Navigator.push(
+            onTap: () => _openResponsivePage(
               context,
-              MaterialPageRoute(
-                builder: (context) => MapEditorPage(controller: controller),
-              ),
+              MapEditorPage(controller: controller),
             ),
           ),
           _buildSettingTile(
@@ -54,8 +75,7 @@ class SettingsPage extends StatelessWidget {
             onTap: () => _generateAndPrintQRLabels(context),
           ),
           if (controller.isAdmin) ...[
-          _buildSectionHeader("ORGANIZATION"),
-          
+            _buildSectionHeader("ORGANIZATION"),
             const SizedBox(height: 20),
 
             _buildSettingTile(
@@ -63,14 +83,10 @@ class SettingsPage extends StatelessWidget {
               color: Colors.purple,
               title: "Staff Management",
               subtitle: "Create and manage staff accounts",
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => StaffManagementPage(controller: controller),
-                  ),
-                );
-              },
+              onTap: () => _openResponsivePage(
+                context,
+                StaffManagementPage(controller: controller),
+              ),
             ),
             _buildSettingTile(
               icon: LucideIcons.trendingUp,
@@ -84,14 +100,10 @@ class SettingsPage extends StatelessWidget {
               color: Colors.teal,
               title: "Transaction History",
               subtitle: "View all inventory transactions",
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TransactionHistoryPage(controller: controller),
-                  ),
-                );
-              },
+              onTap: () => _openResponsivePage(
+                context,
+                TransactionHistoryPage(controller: controller),
+              ),
             ),
           ],
 
@@ -111,7 +123,8 @@ class SettingsPage extends StatelessWidget {
             onTap: () async {
               final prefs = await SharedPreferences.getInstance();
               await prefs.clear();
-              if (context.mounted) Navigator.pushReplacementNamed(context, '/login');
+              if (context.mounted)
+                Navigator.pushReplacementNamed(context, '/login');
             },
           ),
 
@@ -251,7 +264,10 @@ class SettingsPage extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
                           errorMessage!,
-                          style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                          style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     TextField(
@@ -304,47 +320,64 @@ class SettingsPage extends StatelessWidget {
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: isSaving ? null : () async {
-                    if (currentPasswordController.text.isEmpty ||
-                        newPasswordController.text.isEmpty ||
-                        confirmPasswordController.text.isEmpty) {
-                      setState(() => errorMessage = "Please fill in all fields.");
-                      return;
-                    }
-                    if (newPasswordController.text != confirmPasswordController.text) {
-                      setState(() => errorMessage = "New passwords do not match.");
-                      return;
-                    }
-                    
-                    setState(() {
-                      isSaving = true;
-                      errorMessage = null;
-                    });
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          if (currentPasswordController.text.isEmpty ||
+                              newPasswordController.text.isEmpty ||
+                              confirmPasswordController.text.isEmpty) {
+                            setState(
+                              () => errorMessage = "Please fill in all fields.",
+                            );
+                            return;
+                          }
+                          if (newPasswordController.text !=
+                              confirmPasswordController.text) {
+                            setState(
+                              () =>
+                                  errorMessage = "New passwords do not match.",
+                            );
+                            return;
+                          }
 
-                    final error = await controller.changePassword(
-                      currentPasswordController.text,
-                      newPasswordController.text,
-                    );
+                          setState(() {
+                            isSaving = true;
+                            errorMessage = null;
+                          });
 
-                    if (error != null) {
-                      setState(() {
-                        errorMessage = error;
-                        isSaving = false;
-                      });
-                    } else {
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Password changed successfully!"),
-                            backgroundColor: Colors.green,
+                          final error = await controller.changePassword(
+                            currentPasswordController.text,
+                            newPasswordController.text,
+                          );
+
+                          if (error != null) {
+                            setState(() {
+                              errorMessage = error;
+                              isSaving = false;
+                            });
+                          } else {
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    "Password changed successfully!",
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
                           ),
-                        );
-                      }
-                    }
-                  },
-                  child: isSaving 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                        )
                       : const Text("Save"),
                 ),
               ],
@@ -357,7 +390,7 @@ class SettingsPage extends StatelessWidget {
 
   Future<void> _generateAndPrintQRLabels(BuildContext context) async {
     final items = controller.allItems;
-    
+
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -372,7 +405,8 @@ class SettingsPage extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => const Center(child: CircularProgressIndicator()),
+      builder: (dialogContext) =>
+          const Center(child: CircularProgressIndicator()),
     );
 
     try {
@@ -406,23 +440,36 @@ class SettingsPage extends StatelessWidget {
                       children: [
                         pw.Text(
                           item.name,
-                          style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                           maxLines: 1,
                         ),
                         pw.SizedBox(height: 4),
-                        pw.Text("SKU: ${item.sku}", style: const pw.TextStyle(fontSize: 12, color: PdfColors.black)),
+                        pw.Text(
+                          "SKU: ${item.sku}",
+                          style: const pw.TextStyle(
+                            fontSize: 12,
+                            color: PdfColors.black,
+                          ),
+                        ),
                         pw.SizedBox(height: 12),
                         pw.Expanded(
                           child: pw.BarcodeWidget(
                             barcode: pw.Barcode.qrCode(),
-                            data: item.sku, // Generates QR Code based on item's SKU
+                            data: item
+                                .sku, // Generates QR Code based on item's SKU
                             drawText: false,
                           ),
                         ),
                         pw.SizedBox(height: 8),
                         pw.Text(
                           "Price: \$${item.price.toStringAsFixed(2)}",
-                          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                          style: pw.TextStyle(
+                            fontSize: 14,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -444,7 +491,9 @@ class SettingsPage extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        Navigator.pop(context); // Make sure to hide the loading dialog if an error occurs
+        Navigator.pop(
+          context,
+        ); // Make sure to hide the loading dialog if an error occurs
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Error generating PDF: $e"),
