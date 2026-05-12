@@ -8,7 +8,7 @@ class ItemDetailPage extends StatefulWidget {
   final InventoryItem item;
   final InventoryController controller;
   final VoidCallback onBack;
-  final Function(InventoryItem) onUpdate;
+  final Future<void> Function(InventoryItem) onUpdate;
   final Function(String) onDelete;
 
   const ItemDetailPage({
@@ -25,6 +25,10 @@ class ItemDetailPage extends StatefulWidget {
 }
 
 class _ItemDetailPageState extends State<ItemDetailPage> {
+  late InventoryItem _currentItem;
+  List<Map<String, dynamic>> _transactionHistory = [];
+  bool _isLoadingHistory = true;
+
   bool _isEditing = false;
   bool _showMap = false;
 
@@ -42,39 +46,44 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   @override
   void initState() {
     super.initState();
+    _currentItem = widget.item;
     _initControllers();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    if (!mounted) return;
+    setState(() => _isLoadingHistory = true);
+    final history = await widget.controller.fetchTransactionHistory(_currentItem.id);
+    if (mounted) {
+      setState(() {
+        _transactionHistory = history;
+        _isLoadingHistory = false;
+      });
+    }
   }
 
   void _initControllers() {
-    _nameController = TextEditingController(text: widget.item.name);
-    _priceController = TextEditingController(text: widget.item.price.toString());
-    _stockController = TextEditingController(text: widget.item.quantity.toString());
-    _skuController = TextEditingController(text: widget.item.sku);
-    _descController = TextEditingController(text: widget.item.description);
+    _nameController = TextEditingController(text: _currentItem.name);
+    _priceController = TextEditingController(text: _currentItem.price.toString());
+    _stockController = TextEditingController(text: _currentItem.quantity.toString());
+    _skuController = TextEditingController(text: _currentItem.sku);
+    _descController = TextEditingController(text: _currentItem.description);
     
-    _manufacturerController = TextEditingController(text: widget.item.manufacturer ?? "");
-    _modelController = TextEditingController(text: widget.item.model ?? "");
-    _sizeController = TextEditingController(text: widget.item.productSize ?? "");
-    _shelfLevelController = TextEditingController(text: widget.item.shelfLevel ?? "");
-    _binNumberController = TextEditingController(text: widget.item.binNumber ?? "");
+    _manufacturerController = TextEditingController(text: _currentItem.manufacturer ?? "");
+    _modelController = TextEditingController(text: _currentItem.model ?? "");
+    _sizeController = TextEditingController(text: _currentItem.productSize ?? "");
+    _shelfLevelController = TextEditingController(text: _currentItem.shelfLevel ?? "");
+    _binNumberController = TextEditingController(text: _currentItem.binNumber ?? "");
   }
 
   @override
   void didUpdateWidget(ItemDetailPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item != widget.item) {
-      setState(() {
-        _nameController.text = widget.item.name;
-        _priceController.text = widget.item.price.toString();
-        _stockController.text = widget.item.quantity.toString();
-        _skuController.text = widget.item.sku;
-        _descController.text = widget.item.description;
-        _manufacturerController.text = widget.item.manufacturer ?? "";
-        _modelController.text = widget.item.model ?? "";
-        _sizeController.text = widget.item.productSize ?? "";
-        _shelfLevelController.text = widget.item.shelfLevel ?? "";
-        _binNumberController.text = widget.item.binNumber ?? "";
-      });
+      _currentItem = widget.item;
+      _initControllers(); // Re-initialize all controllers with new item data
+      _loadHistory();
     }
   }
 
@@ -93,15 +102,15 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
     super.dispose();
   }
 
-  void _handleSave() {
+  Future<void> _handleSave() async {
     final updated = widget.controller.prepareUpdatedItem(
-      originalItem: widget.item,
+      originalItem: _currentItem,
       newName: _nameController.text,
       newSku: _skuController.text,
       newPrice: _priceController.text,
       newStock: _stockController.text,
       newDesc: _descController.text,
-      locationId: widget.item.locationId,
+      locationId: _currentItem.locationId,
       manufacturer: _manufacturerController.text,
       model: _modelController.text,
       productSize: _sizeController.text,
@@ -109,16 +118,25 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       binNumber: _binNumberController.text,
     );
 
-    widget.onUpdate(updated);
-    setState(() => _isEditing = false);
-    _showSnackBar('Item updated successfully', Colors.green);
+    await widget.onUpdate(updated);
+    if (mounted) {
+      setState(() {
+        _currentItem = updated;
+        _isEditing = false;
+      });
+      await _loadHistory();
+      _showSnackBar('Item updated successfully', Colors.green);
+    }
   }
 
-  void _handleCheckout(int qty) {
-    final updated = widget.controller.calculateCheckout(widget.item, qty);
-    widget.onUpdate(updated);
-    Navigator.pop(context);
-    _showSnackBar('Checked out $qty item(s)', Colors.orange);
+  Future<void> _handleCheckout(int qty) async {
+    final updated = widget.controller.calculateCheckout(_currentItem, qty);
+    await widget.onUpdate(updated);
+    if (mounted) {
+      Navigator.pop(context);
+      _showSnackBar('Checked out $qty item(s)', Colors.orange);
+      await _loadHistory();
+    }
   }
 
   void _showSnackBar(String message, Color color) {
@@ -147,15 +165,17 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                     children: [
                       Row(
                         children: [
-                          _buildStatCard("Price", "₱${widget.item.price.toStringAsFixed(2)}", LucideIcons.banknote, Colors.green, _priceController),
+                          _buildStatCard("Price", "₱${_currentItem.price.toStringAsFixed(2)}", LucideIcons.banknote, Colors.green, _priceController),
                           const SizedBox(width: 12),
-                          _buildStatCard("Stock", widget.item.quantity.toString(), LucideIcons.package, widget.item.quantity < 20 ? Colors.red : Colors.blue, _stockController),
+                          _buildStatCard("Stock", _currentItem.quantity.toString(), LucideIcons.package, _currentItem.quantity < 20 ? Colors.red : Colors.blue, _stockController),
                         ],
                       ),
                       const SizedBox(height: 24),
                       _buildProductSpecsBox(),
                       const SizedBox(height: 24),
                       _buildDetailsBox(),
+                      const SizedBox(height: 24),
+                      _buildTransactionHistoryBox(),
                       const SizedBox(height: 24),
                       _buildMapBox(),
                       const SizedBox(height: 120),
@@ -197,7 +217,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           fit: StackFit.expand,
           children: [
             Image.network(
-              widget.item.imageUrl, 
+              _currentItem.imageUrl, 
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
                 color: Colors.grey.shade200,
@@ -219,11 +239,11 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.item.category.toUpperCase(),
+                    _currentItem.category.toUpperCase(),
                     style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    widget.item.name,
+                    _currentItem.name,
                     style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -281,13 +301,13 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _buildField("Manufacturer", _manufacturerController, widget.item.manufacturer ?? "N/A")),
+              Expanded(child: _buildField("Manufacturer", _manufacturerController, _currentItem.manufacturer ?? "N/A")),
               const SizedBox(width: 12),
-              Expanded(child: _buildField("Model", _modelController, widget.item.model ?? "N/A")),
+              Expanded(child: _buildField("Model", _modelController, _currentItem.model ?? "N/A")),
             ],
           ),
           const SizedBox(height: 16),
-          _buildField("Product Size", _sizeController, widget.item.productSize ?? "Standard"),
+          _buildField("Product Size", _sizeController, _currentItem.productSize ?? "Standard"),
         ],
       ),
     );
@@ -303,17 +323,79 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         children: [
           const Row(children: [Icon(LucideIcons.tag, size: 16, color: Colors.grey), SizedBox(width: 8), Text("Inventory Info", style: TextStyle(fontWeight: FontWeight.bold))]),
           const SizedBox(height: 16),
-          _buildField("SKU", _skuController, widget.item.sku),
+          _buildField("SKU", _skuController, _currentItem.sku),
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _buildField("Shelf Level", _shelfLevelController, widget.item.shelfLevel ?? "Unassigned")),
+              Expanded(child: _buildField("Shelf Level", _shelfLevelController, _currentItem.shelfLevel ?? "Unassigned")),
               const SizedBox(width: 12),
-              Expanded(child: _buildField("Bin Number", _binNumberController, widget.item.binNumber ?? "None")),
+              Expanded(child: _buildField("Bin Number", _binNumberController, _currentItem.binNumber ?? "None")),
             ],
           ),
           const SizedBox(height: 16),
-          _buildField("Description", _descController, widget.item.description, isMultiline: true),
+          _buildField("Description", _descController, _currentItem.description, isMultiline: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionHistoryBox() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(LucideIcons.history, size: 16, color: Colors.grey),
+            SizedBox(width: 8),
+            Text("Transaction History", style: TextStyle(fontWeight: FontWeight.bold))
+          ]),
+          const SizedBox(height: 16),
+          if (_isLoadingHistory)
+            const Center(child: CircularProgressIndicator())
+          else if (_transactionHistory.isEmpty)
+            const Center(child: Text("No transaction history found.", style: TextStyle(color: Colors.grey)))
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _transactionHistory.length,
+              itemBuilder: (context, index) {
+                final transaction = _transactionHistory[index];
+                final date = DateTime.parse(transaction['created_at']).toLocal();
+                final formattedDate = "${date.month}/${date.day}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+                final quantityChange = transaction['quantity_change'];
+                final isPositive = quantityChange > 0;
+                final type = transaction['transaction_type'] as String;
+
+                // Extract the profile data linked via Foreign Key
+                final profileInfo = transaction['profiles'];
+                final userName = profileInfo != null ? profileInfo['name'] : (transaction['user_name'] ?? 'Unknown');
+
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    isPositive ? LucideIcons.plus : LucideIcons.minus,
+                    color: isPositive ? Colors.green : Colors.red,
+                  ),
+                  title: Text(
+                    "${isPositive ? '+' : ''}$quantityChange | ${type.replaceAll('_', ' ').capitalize()}",
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  subtitle: Text("By $userName at $formattedDate"),
+                  trailing: Text(
+                    "New Qty: ${transaction['new_quantity']}",
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -339,7 +421,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
   }
 
   Widget _buildMapBox() {
-    final bool hasMapId = widget.item.locationId != null;
+    final bool hasMapId = _currentItem.locationId != null;
 
     return Column(
       children: [
@@ -357,8 +439,8 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         if (_showMap && hasMapId)
           StoreMap(
             controller: widget.controller,
-            highlightId: widget.item.locationId,
-            itemName: widget.item.name,
+            highlightId: _currentItem.locationId,
+            itemName: _currentItem.name,
           ),
         if (!hasMapId)
           const Padding(
@@ -406,14 +488,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Delete Item?"),
-        content: Text("Remove \"${widget.item.name}\" from inventory?"),
+        content: Text("Remove \"${_currentItem.name}\" from inventory?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.pop(context);
-              widget.onDelete(widget.item.id);
+              widget.onDelete(_currentItem.id);
             },
             child: const Text("Delete", style: TextStyle(color: Colors.white)),
           ),
@@ -445,7 +527,7 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
                   ),
                   Text("$checkoutQty", style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
                   IconButton(
-                    onPressed: () => setModalState(() => checkoutQty = checkoutQty < widget.item.quantity ? checkoutQty + 1 : checkoutQty),
+                    onPressed: () => setModalState(() => checkoutQty = checkoutQty < _currentItem.quantity ? checkoutQty + 1 : checkoutQty),
                     icon: const Icon(Icons.add_circle_outline, size: 40),
                   ),
                 ],
@@ -461,5 +543,14 @@ class _ItemDetailPageState extends State<ItemDetailPage> {
         ),
       ),
     );
+  }
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) {
+      return "";
+    }
+    return "${this[0].toUpperCase()}${substring(1)}";
   }
 }

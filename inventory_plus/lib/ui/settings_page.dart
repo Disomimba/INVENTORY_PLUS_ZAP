@@ -4,8 +4,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../logic/inventory_controller.dart';
 import 'map_editor_page.dart';
+import 'transaction_history_page.dart';
 import 'staff_management_page.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -77,6 +79,20 @@ class SettingsPage extends StatelessWidget {
               subtitle: "Export stock levels to CSV/PDF",
               onTap: () {},
             ),
+            _buildSettingTile(
+              icon: LucideIcons.history,
+              color: Colors.teal,
+              title: "Transaction History",
+              subtitle: "View all inventory transactions",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TransactionHistoryPage(controller: controller),
+                  ),
+                );
+              },
+            ),
           ],
 
           const SizedBox(height: 20),
@@ -93,7 +109,8 @@ class SettingsPage extends StatelessWidget {
             title: "Logout",
             textColor: Colors.redAccent,
             onTap: () async {
-              await Supabase.instance.client.auth.signOut();
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear();
               if (context.mounted) Navigator.pushReplacementNamed(context, '/login');
             },
           ),

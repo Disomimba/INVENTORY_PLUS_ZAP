@@ -12,15 +12,22 @@ class AuthService {
           .eq('password', password)
           .maybeSingle();
 
-      if (response == null) {
-        return null; 
-      }
-
-      print("Login success! Role: ${response['role']}");
       return response;
-      
     } catch (e) {
-      print("Error: $e");
+      print("Login Error: $e");
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getProfile(String userId) async {
+    try {
+      return await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+    } catch (e) {
+      print("Get Profile Error: $e");
       return null;
     }
   }

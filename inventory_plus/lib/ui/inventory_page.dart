@@ -75,50 +75,19 @@ class _InventoryPageState extends State<InventoryPage> {
                     ),
                     ElevatedButton.icon(
                       onPressed: () {
-                        // 1. Check if we are on Desktop or Mobile
-                        final isDesktop =
-                            MediaQuery.of(context).size.width >= 600;
-
-                        if (isDesktop) {
-                          // 2. DESKTOP/WEB: Show as a clean, floating Modal Dialog
-                          showDialog(
-                            context: context,
-                            builder: (context) => Dialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              clipBehavior: Clip
-                                  .antiAlias, // Ensures the AddItemPage respects the rounded corners
-                              child: SizedBox(
-                                width:
-                                    500, // This completely fixes the "stretched out" UI!
-                                height: 700,
-                                // We reuse your exact mobile page inside the modal
-                                child: AddItemPage(
-                                  controller: widget.controller,
-                                  onAdd: (newItem) {
-                                    setState(() {});
-                                    // Optional: If AddItemPage doesn't automatically pop on save, you can add:
-                                    // Navigator.pop(context);
-                                  },
-                                ),
-                              ),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddItemPage(
+                              controller:
+                                  widget.controller, 
+                              onAdd: (newItem) {
+                                setState(() {
+                                });
+                              },
                             ),
-                          );
-                        } else {
-                          // 3. MOBILE: Keep the exact same full-screen push behavior
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AddItemPage(
-                                controller: widget.controller,
-                                onAdd: (newItem) {
-                                  setState(() {});
-                                },
-                              ),
-                            ),
-                          );
-                        }
+                          ),
+                        );
                       },
                       icon: const Icon(LucideIcons.plus, size: 14),
                       label: const Text("New Item"),
@@ -126,7 +95,7 @@ class _InventoryPageState extends State<InventoryPage> {
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: const StadiumBorder(),
+                        shape: StadiumBorder(),
                       ),
                     ),
                   ],
