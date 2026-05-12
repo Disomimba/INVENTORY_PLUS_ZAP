@@ -4,6 +4,7 @@ import 'ui/login_page.dart';
 import 'ui/main_screen.dart'; 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'logic/inventory_controller.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,19 +62,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAuth();
+    });
   }
 
   Future<void> _checkAuth() async {
-    final session = Supabase.instance.client.auth.currentSession;
-
-    if (session != null) {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final userId = prefs.getString('userId');
+    
+    if (isLoggedIn && userId != null) {
       try {
-        final userId = session.user.id;
-
-        // Fetch user profile from Supabase to get the assigned location_id.
+        // Fetch user profile from the 'profiles' table.
         final userProfile = await Supabase.instance.client
-            .from('users')
+            .from('profiles') 
             .select()
             .eq('id', userId)
             .maybeSingle();
@@ -90,10 +93,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           if (assignedLocationId != null && assignedLocationId.isNotEmpty) {
             await widget.controller.loadAppData(assignedLocationId);
             if (mounted) {
-              // FIX: Wait until the frame is fully built before navigating to /main
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                Navigator.pushReplacementNamed(context, '/main');
-              });
+              Navigator.pushReplacementNamed(context, '/main');
               return;
             }
           }
@@ -101,23 +101,22 @@ class _AuthWrapperState extends State<AuthWrapper> {
       } catch (e) {
         print("Error restoring session: $e");
       }
-      // If fetching profile or app data loading fails, sign out and fall back to login
-      await Supabase.instance.client.auth.signOut();
+      // If fetching profile or app data loading fails, clear session and fall back to login
+      await prefs.clear();
     }
-
+    
     if (mounted) {
-      // FIX: Wait until the frame is fully built before navigating to /login
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/login');
-      });
+      Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: Color(0xFF0F172A),
-      body: Center(child: CircularProgressIndicator(color: Colors.orange)),
+      backgroundColor: const Color(0xFF0F172A),
+      body: Center(
+        child: CircularProgressIndicator(color: Colors.orange),
+      ),
     );
   }
 }

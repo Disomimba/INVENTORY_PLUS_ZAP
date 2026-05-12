@@ -113,10 +113,49 @@ class InventoryController {
 
       _items.add(savedItem);
 
+      await _logTransaction(
+        productId: savedItem.id,
+        type: 'add',
+        quantityChange: savedItem.quantity,
+        newQuantity: savedItem.quantity,
+      );
+
       print("SUCCESS: Item saved to Supabase with ID: ${savedItem.id}");
     } catch (e) {
       print("DATABASE ERROR: $e");
       rethrow;
+    }
+  }
+
+  Future<void> _logTransaction({
+    String? productId,
+    required String type,
+    required int quantityChange,
+    required int newQuantity,
+  }) async {
+    final locId = activeLocationId;
+    final userId = currentUserId;
+    final userName = currentUserName ?? 'Unknown User';
+
+    if (locId == null || userId == null) return;
+
+    print("--- DEBUG TRANSACTION LOG ---");
+    print("productId: $productId | locId: $locId | userId: $userId");
+
+    try {
+      final Map<String, dynamic> insertData = {
+        'product_id': productId,
+        'transaction_type': type,
+        'quantity_change': quantityChange,
+        'new_quantity': newQuantity,
+        'location_id': locId,
+        'user_id': int.tryParse(userId) ?? userId,
+        'user_name': userName,
+      };
+
+      await supabase.from('transaction_history').insert(insertData);
+    } catch (e) {
+      print("Error logging transaction: $e");
     }
   }
 
@@ -153,6 +192,21 @@ class InventoryController {
 
   Future<void> updateItem(InventoryItem updatedItem) async {
     try {
+      final index = _items.indexWhere((item) => item.id == updatedItem.id);
+      if (index != -1) {
+        final oldItem = _items[index];
+        final quantityChange = updatedItem.quantity - oldItem.quantity;
+
+        if (quantityChange != 0) {
+          await _logTransaction(
+            productId: updatedItem.id,
+            type: quantityChange > 0 ? 'stock_in' : 'checkout',
+            quantityChange: quantityChange,
+            newQuantity: updatedItem.quantity,
+          );
+        }
+      }
+
       await supabase
           .from('products')
           .update({
@@ -172,7 +226,6 @@ class InventoryController {
           })
           .eq('id', updatedItem.id);
 
-      final index = _items.indexWhere((item) => item.id == updatedItem.id);
       if (index != -1) {
         _items[index] = updatedItem;
       }
@@ -183,8 +236,19 @@ class InventoryController {
 
   Future<void> deleteItem(String id) async {
     try {
+      final index = _items.indexWhere((item) => item.id == id);
       await supabase.from('products').delete().eq('id', id);
-      _items.removeWhere((item) => item.id == id);
+
+      if (index != -1) {
+        final itemToDelete = _items[index];
+        _items.removeAt(index);
+        await _logTransaction(
+          productId: null, // Null to prevent Foreign Key constraint error on cascade delete
+          type: 'delete',
+          quantityChange: -itemToDelete.quantity,
+          newQuantity: 0,
+        );
+      }
     } catch (e) {
       print("Error deleting item: $e");
     }
@@ -408,6 +472,36 @@ class InventoryController {
     } catch (e) {
       print("Error changing password: $e");
       return "An error occurred while changing the password.";
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTransactionHistory(String productId) async {
+    try {
+      final response = await supabase
+          .from('transaction_history')
+          .select('*, profiles(name, role)')
+          .eq('product_id', productId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print("Error fetching transaction history: $e");
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAllTransactionHistory() async {
+    final locId = activeLocationId;
+    if (locId == null) return [];
+    try {
+      final response = await supabase
+          .from('transaction_history')
+          .select('*, products(product_name, sku), profiles(name, role)')
+          .eq('location_id', locId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print("Error fetching all transaction history: $e");
+      return [];
     }
   }
 }
