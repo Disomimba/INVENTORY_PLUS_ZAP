@@ -66,15 +66,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuth() async {
     final session = Supabase.instance.client.auth.currentSession;
-    
+
     if (session != null) {
       try {
         final userId = session.user.id;
-        
+
         // Fetch user profile from Supabase to get the assigned location_id.
-        // Note: Change 'users' to 'profiles' or your actual table name if different.
         final userProfile = await Supabase.instance.client
-            .from('users') 
+            .from('users')
             .select()
             .eq('id', userId)
             .maybeSingle();
@@ -91,7 +90,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
           if (assignedLocationId != null && assignedLocationId.isNotEmpty) {
             await widget.controller.loadAppData(assignedLocationId);
             if (mounted) {
-              Navigator.pushReplacementNamed(context, '/main');
+              // FIX: Wait until the frame is fully built before navigating to /main
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                Navigator.pushReplacementNamed(context, '/main');
+              });
               return;
             }
           }
@@ -102,19 +104,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
       // If fetching profile or app data loading fails, sign out and fall back to login
       await Supabase.instance.client.auth.signOut();
     }
-    
+
     if (mounted) {
-      Navigator.pushReplacementNamed(context, '/login');
+      // FIX: Wait until the frame is fully built before navigating to /login
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/login');
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      body: Center(
-        child: CircularProgressIndicator(color: Colors.orange),
-      ),
+      backgroundColor: Color(0xFF0F172A),
+      body: Center(child: CircularProgressIndicator(color: Colors.orange)),
     );
   }
 }
