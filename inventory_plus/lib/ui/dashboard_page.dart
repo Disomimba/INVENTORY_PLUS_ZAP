@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../logic/inventory_controller.dart';
-import '../../data/inventory.dart';
+import '../data/inventory.dart';
 
 class DashboardPage extends StatefulWidget {
   final InventoryController controller;
@@ -169,7 +168,7 @@ class _DashboardPageState extends State<DashboardPage> {
             // 1. KPI STAT CARDS (Top Row)
             LayoutBuilder(
               builder: (context, constraints) {
-                int crossAxisCount = constraints.maxWidth > 800 ? 4 : (constraints.maxWidth > 500 ? 2 : 1);
+                int crossAxisCount = constraints.maxWidth > 800 ? 4 : 2;
 
                 return GridView(
                   shrinkWrap: true,
